@@ -60,23 +60,40 @@ app.ready(() => {
     })
 
     socket.on('fire-typing', (data: { userId: string; roomId: string; isTyping: boolean }) => {
-      console.log(data.userId, data.roomId, data.isTyping)
       socket.to(data.roomId).emit('fire-typing', { userId: data.userId, isTyping: data.isTyping })
     })
 
-    socket.on('fire-disconnection', (data: { userId: string; roomId: string }) => {
-      const partner = partnerMap.get(socket.id)
+    socket.on('fire-disconnection', () => {
+      disconnectUser(socket)
+    })
 
-      if (partner) {
-        socket.leave(data.roomId)
-        partner.leave(data.roomId)
-
-        socket.emit('notify-disconnection', { userId: data.userId, isDisconnected: true })
-        partner.emit('notify-disconnection', { userId: data.userId, isDisconnected: true })
-
-        partnerMap.delete(socket.id)
-        partnerMap.delete(partner.id)
-      }
+    socket.on('disconnect', () => {
+      disconnectUser(socket)
     })
   })
 })
+
+function disconnectUser(socket: Socket) {
+  console.log('you disconnected userId: ', socket.id)
+
+  const partner = partnerMap.get(socket.id)
+
+  if (partner) {
+    socket.emit('notify-disconnection', { userId: socket.id, isDisconnected: true })
+    partner.emit('notify-disconnection', { userId: socket.id, isDisconnected: true })
+
+    partnerMap.delete(socket.id)
+    partnerMap.delete(partner.id)
+  }
+}
+
+// if (partner) {
+//   socket.leave(data.roomId)
+//   partner.leave(data.roomId)
+
+//   socket.emit('notify-disconnection', { userId: data.userId, isDisconnected: true })
+//   partner.emit('notify-disconnection', { userId: data.userId, isDisconnected: true })
+
+//   partnerMap.delete(socket.id)
+//   partnerMap.delete(partner.id)
+// }
