@@ -1,10 +1,11 @@
 import WSocket from '#services/socket'
 import app from '@adonisjs/core/services/app'
 import { Socket } from 'socket.io'
-import { SendMessageData } from '#start/types'
+import { SendMessageData, UserInQueue } from '#start/types'
 import { randomUUID } from 'node:crypto'
 
-const userQueue: Socket[] = []
+const userQueue: UserInQueue[] = []
+const videoQueue: UserInQueue[] = []
 const partnerMap = new Map<string, Socket>()
 
 app.ready(() => {
@@ -15,28 +16,50 @@ app.ready(() => {
     socket.emit('send-user-id', { userId: socket.id, isQueueing: true })
 
     // User Matching
-    socket.on('find-partner', () => {
-      if (userQueue.length > 0) {
+    socket.on('find-partner', (data: { peerId: string; chatType: string }) => {
+      console.log(socket.id, 'is looking for match.')
+
+      if (userQueue.length > 0 || videoQueue.length > 0) {
         // Get the first user in queue and remove from the queue
-        const partner = userQueue.shift()
+        const partner = data.chatType === 'text' ? userQueue.shift() : videoQueue.shift()
 
-        if (partner === socket) return
+        console.log('partner: ', partner?.socket.id)
 
-        if (partner?.connected) {
+        if (partner?.socket.id === socket.id) return
+
+        if (partner?.socket.connected) {
+          console.log(`partner connected`)
           const roomId = randomUUID()
 
-          partnerMap.set(socket.id, partner)
-          partnerMap.set(partner.id, socket)
+          partnerMap.set(socket.id, partner.socket)
+          partnerMap.set(partner.socket.id, socket)
 
           socket.join(roomId)
-          partner.join(roomId)
+          partner.socket.join(roomId)
 
-          socket.emit('matched', { roomId: roomId, partnerId: partner.id, isQueueing: false })
-          partner.emit('matched', { roomId: roomId, partnerId: socket.id, isQueueing: false })
+          socket.emit('matched', {
+            roomId: roomId,
+            partnerId: partner.socket.id,
+            userPeerId: data.peerId,
+            strangerPeerId: partner.peerId,
+          })
+          partner.socket.emit('matched', {
+            roomId: roomId,
+            partnerId: socket.id,
+            userPeerId: partner.peerId,
+            strangerPeerId: data.peerId,
+          })
         }
+
+        console.log(socket.id, 'is matched with', partner?.peerId)
       } else {
         // if queue is empty, push the current socket matching
-        userQueue.push(socket)
+        if (data.chatType === 'text') {
+          userQueue.push({ socket, peerId: data.peerId })
+        } else {
+          videoQueue.push({ socket, peerId: data.peerId })
+        }
+        console.log(`${socket.id} added to queue.`)
       }
     })
 
@@ -67,6 +90,7 @@ app.ready(() => {
     // Listen for client disconnection
     socket.on('disconnect', () => {
       disconnectUser(socket)
+      socket.emit('fire-disconnection', {})
     })
   })
 })

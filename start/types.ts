@@ -13,4 +13,9 @@ export type User = {
   interests: string[]
 }
 
+export type UserInQueue = {
+  socket: Socket
+  peerId: string
+}
+
 export const emitter = new EventEmitter()
