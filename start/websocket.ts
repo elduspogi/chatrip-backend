@@ -1,7 +1,7 @@
 import WSocket from '#services/socket'
 import app from '@adonisjs/core/services/app'
 import { Socket } from 'socket.io'
-import { SendMessageData, User, UserInQueue } from '#start/types'
+import { SendMessageData, UserInQueue } from '#start/types'
 import { disconnectUser, makeMatch } from './utils.js'
 
 const userQueue: UserInQueue[] = []
