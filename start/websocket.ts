@@ -7,6 +7,10 @@ import { disconnectUser, makeMatch } from './utils.js'
 const userQueue: UserInQueue[] = []
 const videoQueue: UserInQueue[] = []
 const partnerMap = new Map<string, Socket>()
+let temp: { socketId: string; chatType: string } = {
+  socketId: '',
+  chatType: '',
+}
 
 app.ready(() => {
   WSocket.boot()
@@ -17,6 +21,9 @@ app.ready(() => {
 
     // User Matching
     socket.on('find-partner', (data: { peerId: string; chatType: string }) => {
+      temp.chatType = data.chatType
+      temp.socketId = socket.id
+
       if (data.chatType === 'text') {
         if (userQueue.length > 0) {
           const partner = userQueue.shift()
@@ -30,6 +37,7 @@ app.ready(() => {
         if (videoQueue.length > 0) {
           const partner = videoQueue.shift()
 
+          console.log('Partners: ', socket.id, partner?.socket.id)
           makeMatch(socket, partner, data, partnerMap)
         } else {
           // if queue is empty, push the current socket matching
@@ -58,12 +66,34 @@ app.ready(() => {
 
     // FOR REMOVAL (DON'T MIND THIS HEHE)
     // KINDA SUS
-    socket.on('fire-disconnection', () => {
+    socket.on('fire-disconnection', (socketId: string, chatType: string) => {
       disconnectUser(socket, partnerMap)
+
+      if (chatType === 'video') {
+        const index = videoQueue.findIndex((user) => user.socket.id === socketId)
+        console.log(index)
+        videoQueue.splice(index, 1)
+      } else if (chatType === 'text') {
+        const index = userQueue.findIndex((user) => user.socket.id === socketId)
+        console.log(index)
+        userQueue.slice(index, 1)
+      }
     })
 
     // Listen for client disconnection
     socket.on('disconnect', () => {
+      if (temp.chatType === 'video') {
+        const index = videoQueue.findIndex((user) => user.socket.id === temp.socketId)
+        console.log(index)
+        videoQueue.splice(index, 1)
+        console.log(videoQueue)
+      } else if (temp.chatType === 'text') {
+        const index = userQueue.findIndex((user) => user.socket.id === temp.socketId)
+        console.log(index)
+        userQueue.slice(index, 1)
+        console.log(userQueue)
+      }
+
       disconnectUser(socket, partnerMap)
       socket.emit('fire-disconnection', {})
     })
