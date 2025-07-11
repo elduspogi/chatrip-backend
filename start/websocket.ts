@@ -7,10 +7,7 @@ import { disconnectUser, makeMatch } from './utils.js'
 const userQueue: UserInQueue[] = []
 const videoQueue: UserInQueue[] = []
 const partnerMap = new Map<string, Socket>()
-let temp: { socketId: string; chatType: string } = {
-  socketId: '',
-  chatType: '',
-}
+let chatType: string
 
 app.ready(() => {
   WSocket.boot()
@@ -21,27 +18,30 @@ app.ready(() => {
 
     // User Matching
     socket.on('find-partner', (data: { peerId: string; chatType: string }) => {
-      temp.chatType = data.chatType
-      temp.socketId = socket.id
+      chatType = data.chatType
+      console.log(chatType)
 
       if (data.chatType === 'text') {
-        if (userQueue.length > 0) {
-          const partner = userQueue.shift()
+        if (userQueue.length >= 1) {
+          const partner = userQueue.pop()
 
           makeMatch(socket, partner, data, partnerMap)
         } else {
           // if queue is empty, push the current socket matching
           userQueue.push({ socket, peerId: data.peerId })
+          console.log(userQueue.map((user) => user.socket.id))
         }
       } else {
-        if (videoQueue.length > 0) {
-          const partner = videoQueue.shift()
+        console.log('videoQueue length: ', videoQueue.length)
 
-          console.log('Partners: ', socket.id, partner?.socket.id)
+        if (videoQueue.length >= 1) {
+          const partner = videoQueue.pop()
+
           makeMatch(socket, partner, data, partnerMap)
         } else {
           // if queue is empty, push the current socket matching
           videoQueue.push({ socket, peerId: data.peerId })
+          console.log(videoQueue.map((user) => user.socket.id))
         }
       }
     })
@@ -66,36 +66,36 @@ app.ready(() => {
 
     // FOR REMOVAL (DON'T MIND THIS HEHE)
     // KINDA SUS
-    socket.on('fire-disconnection', (socketId: string, chatType: string) => {
+    socket.on('fire-disconnection', () => {
       disconnectUser(socket, partnerMap)
-
-      if (chatType === 'video') {
-        const index = videoQueue.findIndex((user) => user.socket.id === socketId)
-        console.log(index)
-        videoQueue.splice(index, 1)
-      } else if (chatType === 'text') {
-        const index = userQueue.findIndex((user) => user.socket.id === socketId)
-        console.log(index)
-        userQueue.slice(index, 1)
-      }
     })
 
     // Listen for client disconnection
     socket.on('disconnect', () => {
-      if (temp.chatType === 'video') {
-        const index = videoQueue.findIndex((user) => user.socket.id === temp.socketId)
-        console.log(index)
-        videoQueue.splice(index, 1)
-        console.log(videoQueue)
-      } else if (temp.chatType === 'text') {
-        const index = userQueue.findIndex((user) => user.socket.id === temp.socketId)
-        console.log(index)
-        userQueue.slice(index, 1)
-        console.log(userQueue)
-      }
-
       disconnectUser(socket, partnerMap)
       socket.emit('fire-disconnection', {})
+    })
+
+    socket.on('stop-queueing', (data: { chatType: string }) => {
+      if (data.chatType === 'video') {
+        const index = videoQueue.findIndex((user) => user.socket.id === socket.id)
+        console.log(index)
+        console.log('videoQueue before: ', videoQueue)
+        videoQueue.splice(index, 1)
+
+        console.log(
+          'videoQueue after: ',
+          videoQueue.map((user) => user.socket.id)
+        )
+      } else if (data.chatType === 'text') {
+        console.log('delete: ', socket.id)
+        const index = userQueue.findIndex((user) => user.socket.id === socket.id)
+        console.log(index)
+        console.log('userQueue before: ', userQueue)
+        userQueue.splice(index, 1)
+
+        console.log('userQueue after: ', userQueue)
+      }
     })
   })
 })
