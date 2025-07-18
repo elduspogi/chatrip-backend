@@ -2,10 +2,10 @@ import WSocket from '#services/socket'
 import app from '@adonisjs/core/services/app'
 import { Socket } from 'socket.io'
 import { SendMessageData, UserInQueue } from '#start/types'
-import { disconnectUser, makeMatch } from './utils.js'
+import { disconnectUser, makeMatch, removeSocket } from './utils.js'
 
-const userQueue: UserInQueue[] = []
-const videoQueue: UserInQueue[] = []
+export const userQueue: UserInQueue[] = []
+export const videoQueue: UserInQueue[] = []
 const partnerMap = new Map<string, Socket>()
 let chatType: string
 
@@ -77,25 +77,9 @@ app.ready(() => {
     })
 
     socket.on('stop-queueing', (data: { chatType: string }) => {
-      if (data.chatType === 'video') {
-        const index = videoQueue.findIndex((user) => user.socket.id === socket.id)
-        console.log(index)
-        console.log('videoQueue before: ', videoQueue)
-        videoQueue.splice(index, 1)
+      const queue = data.chatType === 'video' ? videoQueue : userQueue
 
-        console.log(
-          'videoQueue after: ',
-          videoQueue.map((user) => user.socket.id)
-        )
-      } else if (data.chatType === 'text') {
-        console.log('delete: ', socket.id)
-        const index = userQueue.findIndex((user) => user.socket.id === socket.id)
-        console.log(index)
-        console.log('userQueue before: ', userQueue)
-        userQueue.splice(index, 1)
-
-        console.log('userQueue after: ', userQueue)
-      }
+      removeSocket(queue, socket)
     })
   })
 })
