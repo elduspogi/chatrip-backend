@@ -1,3 +1,4 @@
+import { userQueue, videoQueue } from '#start/websocket'
 import { Socket } from 'socket.io'
 import { UserInQueue } from './types.js'
 import { randomUUID } from 'node:crypto'
@@ -47,4 +48,19 @@ export function makeMatch(
       strangerPeerId: data.peerId,
     })
   }
+}
+
+export function removeSocket(queue: typeof userQueue | typeof videoQueue, socket: Socket) {
+  console.log(
+    'queue before: ',
+    queue.map((user: { socket: { id: string } }) => user.socket.id)
+  )
+  const index = queue.findIndex((user: { socket: { id: string } }) => user.socket.id === socket.id)
+
+  queue.splice(index, 1)
+
+  console.log(
+    'queue after: ',
+    queue.map((user: { socket: { id: string } }) => user.socket.id)
+  )
 }
